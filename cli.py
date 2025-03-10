@@ -13,6 +13,7 @@ def main():
     papers = fetch_papers(args.query, args.num)
 
     if papers:
+        print("📄 Papers Fetched:", papers)  
         save_to_csv(papers, args.output)
     else:
         print("⚠️ No papers found for the query.")
