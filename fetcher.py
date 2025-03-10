@@ -15,10 +15,23 @@ def fetch_papers(query: str, max_results: int = 10) -> List[Dict[str, Optional[s
         "retmax": max_results
     }
     response = requests.get(SEARCH_URL, params=params)
-    response.raise_for_status()
+    print("🔍 API Response Status Code:", response.status_code)
+    print("🔍 API Response Content:", response.text)
+    #response.raise_for_status()
+    if response.status_code != 200:
+        print("⚠️ Error fetching papers!")
+        return []
+
+    paper_ids = response.json().get("esearchresult", {}).get("idlist", [])
     
-    paper_ids = response.json()["esearchresult"]["idlist"]
+    if not paper_ids:
+        print("⚠️ No papers found!")
+        return []
+
     return fetch_paper_details(paper_ids)
+    
+    #paper_ids = response.json()["esearchresult"]["idlist"]
+    #return fetch_paper_details(paper_ids)
 
 def fetch_paper_details(paper_ids: List[str]) -> List[Dict[str, Optional[str]]]:
     """Fetch details for a list of PubMed IDs."""
