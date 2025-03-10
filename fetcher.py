@@ -2,26 +2,55 @@ import requests
 import pandas as pd
 from typing import List, Dict, Optional
 
-def fetch_papers(query: str) -> List[Dict[str, Optional[str]]]:
-    # Construct the API URL
-    url = f"https://pubmed.ncbi.nlm.nih.gov/api/query?query={query}"
-    response = requests.get(url)
-    response.raise_for_status()  # Raise an error for bad responses
+# Correct PubMed API URLs
+SEARCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
+SUMMARY_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi"
 
-    # Process the response (this is a placeholder, actual parsing needed)
-    papers = []  # This should be populated with actual data from the response
+def fetch_papers(query: str, max_results: int = 10) -> List[Dict[str, Optional[str]]]:
+    """Fetch PubMed papers based on a query."""
+    params = {
+        "db": "pubmed",
+        "term": query,
+        "retmode": "json",
+        "retmax": max_results
+    }
+    response = requests.get(SEARCH_URL, params=params)
+    response.raise_for_status()
+    
+    paper_ids = response.json()["esearchresult"]["idlist"]
+    return fetch_paper_details(paper_ids)
+
+def fetch_paper_details(paper_ids: List[str]) -> List[Dict[str, Optional[str]]]:
+    """Fetch details for a list of PubMed IDs."""
+    if not paper_ids:
+        return []
+    
+    params = {
+        "db": "pubmed",
+        "id": ",".join(paper_ids),
+        "retmode": "json"
+    }
+    response = requests.get(SUMMARY_URL, params=params)
+    response.raise_for_status()
+
+    results = response.json()["result"]
+    papers = []
+    
+    for paper_id in paper_ids:
+        paper = results.get(paper_id, {})
+        papers.append({
+            "PubmedID": paper_id,
+            "Title": paper.get("title", "N/A"),
+            "Publication Date": paper.get("pubdate", "N/A"),
+            "Non-academic Author(s)": "N/A",  # Need NLP for real filtering
+            "Company Affiliation(s)": "N/A",  # Needs additional processing
+            "Corresponding Author Email": "N/A"  # Email not available in this API
+        })
+
     return papers
 
-def filter_papers(papers: List[Dict[str, Optional[str]]]) -> List[Dict[str, Optional[str]]]:
-    # Filter papers based on author affiliations
-    filtered_papers = []
-    for paper in papers:
-        # Logic to identify non-academic authors and company affiliations
-        # Placeholder logic
-        if paper.get('author_affiliation') and 'pharmaceutical' in paper['author_affiliation']:
-            filtered_papers.append(paper)
-    return filtered_papers
-
 def save_to_csv(papers: List[Dict[str, Optional[str]]], filename: str) -> None:
+    """Save paper data to a CSV file."""
     df = pd.DataFrame(papers)
     df.to_csv(filename, index=False)
+    print(f"✅ Results saved to {filename}")
